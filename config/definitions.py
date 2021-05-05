@@ -62,3 +62,23 @@ class SheetParameters:
         column = 9
         range = "I1:I10000"
         width = 22
+
+    class Interval:
+        column = 10
+        range = "J1:J10000"
+        width = 22
+
+    class IsStopped:
+        column = 11
+        range = "K1:K10000"
+        width = 22
+
+    class WasActive:
+        column = 12
+        range = "L1:L10000"
+        width = 22
+
+    class SumScraped:
+        column = 13
+        range = "M1:M10000"
+        width = 22

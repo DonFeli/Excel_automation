@@ -43,14 +43,13 @@ class StoppedCollectDetector:
 
     @staticmethod
     def get_ever_active(currently_stopped):
-        """Extracts territories with at least one active collect."""
+        """Extracts territorry uids where at least one collect was active."""
         ever_active = currently_stopped.groupby("territory_uid")["was_active"].agg(lambda x: any(x)).reset_index()
-        return ever_active
+        ever_active_uids = ever_active[ever_active["was_active"]]["territory_uid"]
+        return ever_active_uids
 
     @staticmethod
-    def get_candidate(ever_active_collects, currently_stopped, last_active_day_treshold=12):
-        ever_active_uids = ever_active_collects[ever_active_collects["was_active"]]["territory_uid"]
-
+    def get_candidate(ever_active_uids, currently_stopped, last_active_day_treshold=12):
         # Combining Active collect, no collect inbetween, and interval between collects above treshold, we have the
         # candidate.
         stopped_collect = currently_stopped[(currently_stopped["territory_uid"].isin(ever_active_uids)) &

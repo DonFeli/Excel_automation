@@ -144,10 +144,10 @@ def main(args):
     # - Filtre les territoires pour lesquels il y a eu au moins une collecte active (was_active = TRUE)
     logger.info('-------------- Sheet 7 : Get ever active Python --------------------')
     
-    ever_active = StoppedCollectDetector.get_ever_active(currently_stopped)
+    ever_active_uids = StoppedCollectDetector.get_ever_active(currently_stopped)
 
     ever_active_sheet_P = workbook.create_sheet('get_ever_active Python')
-    for row in dataframe_to_rows(ever_active, index=False, header=True):
+    for row in dataframe_to_rows(ever_active_uids, index=False, header=True):
         ever_active_sheet_P.append(row)
 
     # GET CANDIDATE EXCEL
@@ -171,7 +171,7 @@ def main(args):
     # GET CANDIDATE PYTHON
     logger.info('-------------- Sheet 8 : Get candidate Python --------------------')
     
-    candidates = StoppedCollectDetector.get_candidate(ever_active, currently_stopped, last_active_day_treshold=12)
+    candidates = StoppedCollectDetector.get_candidate(ever_active_uids, currently_stopped, last_active_day_treshold=12)
     
     get_candidate_sheet_P = workbook.create_sheet('get_candidate Python')
     for row in dataframe_to_rows(candidates, index=False, header=True):
@@ -189,6 +189,7 @@ def main(args):
     for sheet in workbook._sheets:
         sheet.column_dimensions[
             get_column_letter(SheetParameters.UpdatedAt.column)].width = SheetParameters.UpdatedAt.width
+
         sheet.column_dimensions[get_column_letter(SheetParameters.Website.column)].width = SheetParameters.Website.width
         sheet.column_dimensions[
             get_column_letter(SheetParameters.TerritoryUid.column)].width = SheetParameters.TerritoryUid.width
@@ -202,6 +203,15 @@ def main(args):
             get_column_letter(SheetParameters.UpdatedAtLast.column)].width = SheetParameters.UpdatedAtLast.width
         sheet.column_dimensions[get_column_letter(
             SheetParameters.ItemScrapedCountLast.column)].width = SheetParameters.ItemScrapedCountLast.width
+        sheet.column_dimensions[get_column_letter(
+            SheetParameters.Interval.column)].width = SheetParameters.Interval.width
+        sheet.column_dimensions[get_column_letter(
+            SheetParameters.IsStopped.column)].width = SheetParameters.IsStopped.width
+        sheet.column_dimensions[get_column_letter(
+            SheetParameters.WasActive.column)].width = SheetParameters.WasActive.width
+        sheet.column_dimensions[get_column_letter(
+            SheetParameters.SumScraped.column)].width = SheetParameters.SumScraped.width
+
         sheet.auto_filter.ref = sheet.dimensions
 
     workbook.save(filename=f'{args.gsheet}.xlsx')
