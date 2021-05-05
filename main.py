@@ -18,7 +18,7 @@ pd.set_option("display.width", 0)
 def parse_arguments():
     """Parse argument from console"""
     parser = ArgumentParser()
-    parser.add_argument('--gsheet', '-g', type=str, default='Excel automation project', help='Name of excel sheet.')
+    parser.add_argument('--gsheet', '-g', type=str, default='Excel automation project', help='Name of excel file.')
     return parser.parse_args()
 
 
@@ -28,49 +28,62 @@ def print_rows(sheet):
 
 
 def main(args):
-    logger.info('-------------- Loading and transforming data --------------------')
+    logger.info('-------------- Retrieving collects --------------------')
     collect_operations = CollectOperationExtractor()
     collect_operations.retrieve_collects()
+
+    # LOAD AND TRANSFORM
+    # - Transforme la liste de dictionnaires en dataframe
+    # - Extrait du nested dictionnary les champs item scraped count et finish reason
+    # - Exporte tel quel dans Excel
+    logger.info('-------------- Sheet 1 : Load and transform --------------------')
+
     structured_collects = CollectTransformer().load_and_transform(collect_operations.collect_data)
 
-    # INITIAL COLLECTS
-
-    logger.info('-------------- Sheet 1 : Initial Collects --------------------')
     workbook = Workbook()
     sheet1 = workbook.active
-    sheet1.title = "Initial Collects"
-
+    sheet1.title = "load_and_transform"
     for row in dataframe_to_rows(structured_collects, index=False, header=True):
         sheet1.append(row)
 
-    # SUFFICIENT COLLECTS
+    # FILTER INSUFFICIENT COLLECTS
+    # - Filtre les territoires ayant au moins 2 collectes
+    # - Exporte tel quel dans Excel
+    logger.info('-------------- Sheet 2 : Filter insufficient collects --------------------')
 
-    logger.info('-------------- Sheet 2 : Sufficient Collects --------------------')
     sufficient_collects = StoppedCollectDetector.filter_insufficient_collects(structured_collects, 2)
-    sufficient_collects_sheet = workbook.create_sheet("Sufficient Collects")
+
+    sufficient_collects_sheet = workbook.create_sheet("filter_insufficient_collects")
     for row in dataframe_to_rows(sufficient_collects, index=False, header=True):
         sufficient_collects_sheet.append(row)
 
     # PAIRS WITH LAST COLLECTS
+    # - Cree un dataframe contenant uniquement les dernieres collectes de chaque territoire
+    # - Merge avec l'ancien dataframe pour obtenir pour chaque collecte, la derniere collecte du territoire
+    # - 2 nouvelles colonnes : item scraped count last et updated at last
+    # - Exporte tel quel dans Excel
+    logger.info('-------------- Sheet 3 : Get pairs with last collect --------------------')
 
-    logger.info('-------------- Sheet 3 : Pairs with Last Collect --------------------')
-    pairs_with_last_collect = StoppedCollectDetector.get_last_collect_by_territory(sufficient_collects)
-    pairs_with_last_collect_sheet = workbook.create_sheet("Pairs with Last Collect")
+    pairs_with_last_collect = StoppedCollectDetector.get_pairs_with_last_collect(sufficient_collects)
+
+    pairs_with_last_collect_sheet = workbook.create_sheet("get_pairs_with_last_collect")
     for row in dataframe_to_rows(pairs_with_last_collect, index=False, header=True):
         pairs_with_last_collect_sheet.append(row)
 
     # PROCESSED PAIRS WITH EXCEL
+    # - Cree 3 nouvelles colonnes dans Excel
+    #   - interval : nombre de jours entre une collecte et la derniere collecte d'un territoire
+    #   - is stopped : si item scraped count est égal à 0
+    #   - was active : si item scraped count est supérieur à 9
+    logger.info('-------------- Sheet 4 : Get processed pairs Excel --------------------')
 
-    logger.info('-------------- Sheet 4 : Processed Pairs with Excel --------------------')
     processed_pairs_excel_sheet = workbook.copy_worksheet(pairs_with_last_collect_sheet)
-    processed_pairs_excel_sheet.title = 'Processed Pairs Excel'
+    processed_pairs_excel_sheet.title = 'get_processed_pairs Excel'
 
     processed_pairs_excel_sheet['J1'].value = "interval"
     processed_pairs_excel_sheet['J2'] = "=(H2-A2)"
-
     processed_pairs_excel_sheet['K1'].value = "is_stopped"
     processed_pairs_excel_sheet['K2'] = '=IF(I2=0, "TRUE", "FALSE")'
-
     processed_pairs_excel_sheet['L1'].value = "was_active"
     processed_pairs_excel_sheet['L2'] = '=IF(E2>9, "TRUE", "FALSE")'
 
@@ -82,88 +95,97 @@ def main(args):
             f'L{i}')
 
     # PROCESSED PAIRS WITH PYTHON
-
-    logger.info('-------------- Sheet 5 : Processed Pairs with Python --------------------')
+    # - La meme chose mais transformé dans Python
+    logger.info('-------------- Sheet 5 : Get processed pairs Python --------------------')
 
     processed_pairs = StoppedCollectDetector.get_processed_pairs(pairs_with_last_collect)
-    processed_pairs['interval'] = processed_pairs['interval'].dt.days
     processed_pairs.sort_values(["territory_uid", "updated_at"], inplace=True, ascending=False)
 
-    processed_pairs_python_sheet = workbook.create_sheet("Processed pairs Python")
-
+    processed_pairs_python_sheet = workbook.create_sheet("get_processed_pairs Python")
     for row in dataframe_to_rows(processed_pairs, index=False, header=True):
         processed_pairs_python_sheet.append(row)
 
     # SUM SCRAPED ON CURRENTLY STOPPED COLLECTS
+    # - Cree une colonne calculant la somme cumulée des item scraped count par territoire
+    # - Exporte tel quel dans Excel
+    logger.info('-------------- Sheet 6 : Get sum scraped currently stopped --------------------')
 
-    logger.info('-------------- Sheet 6 : Currently Stopped --------------------')
+    currently_stopped = StoppedCollectDetector.get_sum_scraped_currently_stopped(processed_pairs)
 
-    currently_stopped_sum_scraped = StoppedCollectDetector.get_sum_scraped_currently_stopped(processed_pairs)
+    currently_stopped_sheet = workbook.create_sheet('get_sum_scraped_currently_stopped')
+    for row in dataframe_to_rows(currently_stopped, index=False, header=True):
+        currently_stopped_sheet.append(row)
 
-    currently_stopped_sum_scraped_sheet = workbook.create_sheet('Sum Scraped on Currently Stopped Collects')
+    # EVER ACTIVE EXCEL
+    # - Filtre les territoires pour lesquels il y a eu au moins une collecte active (was_active = TRUE)
+    # logger.info('-------------- Sheet 7 : Get ever active Excel --------------------')
+    #
+    # ever_active_sheet_E = workbook.copy_worksheet(currently_stopped_sheet)
+    # ever_active_sheet_E.title = 'get_ever_active Excel'
+    #
+    # # Récupère les territory_uids où la collecte était active (was_active = True)
+    # ever_active_rows = []
+    # for row in ever_active_sheet_E.iter_rows(min_row=2, max_row=ever_active_sheet_E.max_row, min_col=12, max_col=12):
+    #     for cell in row:
+    #         if cell.value == True:
+    #             ever_active_rows.append(row[0].row)
+    #
+    # ever_active_uids = []
+    # for active_row in ever_active_rows:
+    #     ever_active_uids.append(ever_active_sheet_E[f'C{active_row}'].value)
+    #
+    # # Supprime les collectes de territoires qui n'ont jamais été actifs
+    # for cell in ever_active_sheet_E['C']:
+    #     if cell.row != 1:
+    #         if cell.value not in ever_active_uids:
+    #             ever_active_sheet_E.delete_rows(cell.row)
 
-    for row in dataframe_to_rows(currently_stopped_sum_scraped, index=False, header=True):
-        currently_stopped_sum_scraped_sheet.append(row)
+    # EVER ACTIVE PYTHON
+    # - Filtre les territoires pour lesquels il y a eu au moins une collecte active (was_active = TRUE)
+    logger.info('-------------- Sheet 7 : Get ever active Python --------------------')
+    
+    ever_active = StoppedCollectDetector.get_ever_active(currently_stopped)
 
-    # EVER ACTIVE
+    ever_active_sheet_P = workbook.create_sheet('get_ever_active Python')
+    for row in dataframe_to_rows(ever_active, index=False, header=True):
+        ever_active_sheet_P.append(row)
 
-    logger.info('-------------- Sheet 7 : Ever Active --------------------')
+    # GET CANDIDATE EXCEL
+    logger.info('-------------- Sheet 8 : Get candidate Excel --------------------')
 
-    ever_active_sheet = workbook.copy_worksheet(currently_stopped_sum_scraped_sheet)
-    ever_active_sheet.title = 'Ever Active'
-
-    # Récupère les territory_uids où la collecte était active (was_active = True)
-    ever_active_rows = []
-    for row in ever_active_sheet.iter_rows(min_row=2, max_row=ever_active_sheet.max_row, min_col=12, max_col=12):
-        for cell in row:
-            if cell.value == True:
-                ever_active_rows.append(row[0].row)
-
-    ever_active_uids = []
-    for active_row in ever_active_rows:
-        ever_active_uids.append(ever_active_sheet[f'C{active_row}'].value)
+    get_candidate_sheet_E = workbook.copy_worksheet(ever_active_sheet_P)
+    get_candidate_sheet_E.title = 'get_candidate Excel'
 
     # Supprime les collectes de territoires qui n'ont jamais été actifs
-    for cell in ever_active_sheet['C']:
-        if cell.row != 1:
-            if cell.value not in ever_active_uids:
-                ever_active_sheet.delete_rows(cell.row)
-
-    # SCRAPPING DEAD
-
-    logger.info('-------------- Sheet 8 : Scrapping Kaput --------------------')
-
-    scrapping_kaput_sheet = workbook.copy_worksheet(ever_active_sheet)
-    scrapping_kaput_sheet.title = 'Scrapping Kaput'
-
-    # Supprime les collectes de territoires qui n'ont jamais été actifs
-    for cell in scrapping_kaput_sheet['M']:
+    for cell in get_candidate_sheet_E['M']:
         if cell.row != 1:
             if cell.value != 0:
-                scrapping_kaput_sheet.delete_rows(cell.row)
+                get_candidate_sheet_E.delete_rows(cell.row)
 
-    # INTERVAL EXCEEDED 
-
-    logger.info('-------------- Sheet 9 : Interval exceeded --------------------')
-
-    interval_exceeded_sheet = workbook.copy_worksheet(scrapping_kaput_sheet)
-    interval_exceeded_sheet.title = 'Scrapping Kaput'
-
-    # # Supprime les lignes où l'interval est inférieur à 12 jours
-    for cell in interval_exceeded_sheet['J']:
+    # Supprime les lignes où l'interval est inférieur à 12 jours
+    for cell in get_candidate_sheet_E['J']:
         if cell.row != 1:
             if cell.value < 12:
-                interval_exceeded_sheet.delete_rows(cell.row)
+                get_candidate_sheet_E.delete_rows(cell.row)
+                
+    # GET CANDIDATE PYTHON
+    logger.info('-------------- Sheet 8 : Get candidate Python --------------------')
+    
+    candidates = StoppedCollectDetector.get_candidate(ever_active, currently_stopped, last_active_day_treshold=12)
+    
+    get_candidate_sheet_P = workbook.create_sheet('get_candidate Python')
+    for row in dataframe_to_rows(candidates, index=False, header=True):
+        get_candidate_sheet_P.append(row)
 
     # SUMMARY STATISTICS
-
-    logger.info('-------------- Sheet 10 : Interval exceeded --------------------')
+    logger.info('-------------- Sheet 9 : Summary --------------------')
 
     summary_statistics_sheet = workbook.create_sheet("Summary Statistics")
-    # summary_statistics_sheet['A1'] = '=COUNTA(N3:N236)'
-    # summary_statistics_sheet['A2'] = '=UNIQUE(C2:C1016)'
+    summary_statistics_sheet['A1'] = '=COUNTA(N3:N236)'
+    summary_statistics_sheet['A2'] = '=UNIQUE(C2:C1016)'
 
-    # logger.info('-------------- Saving Excel file ---------------------------------')
+    # MISE EN FORME
+    logger.info('-------------- Saving Excel file ---------------------------------')
     for sheet in workbook._sheets:
         sheet.column_dimensions[
             get_column_letter(SheetParameters.UpdatedAt.column)].width = SheetParameters.UpdatedAt.width
@@ -188,7 +210,4 @@ def main(args):
 if __name__ == '__main__':
     args = parse_arguments()
     main(args)
-    # # Supprime les lignes où les collectes ne sont pas arrêtées (is_stopped = False)
-    # for cell in filtered_pairs_sheet['K']:
-    #     if cell.value == False:
-    #         filtered_pairs_sheet.delete_rows(cell.row)
+

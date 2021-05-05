@@ -1,8 +1,6 @@
-from datetime import timedelta
 from pathlib import Path
 import json
 import os
-import pandas as pd
 
 from config import logger, PROJECT_PATH
 
@@ -14,7 +12,7 @@ class CollectOperationExtractor:
         self.logger = logger
 
     def retrieve_collects(self):
-        """Retrieve and consolidate files"""
+        """Create a list of each collect as a dictionnary"""
         collects = []
         filenames = os.listdir(Path(PROJECT_PATH / 'data'))
         for filename in filenames:
@@ -24,5 +22,3 @@ class CollectOperationExtractor:
 
         self.collect_data = collects
         return self.collect_data
-
-
