@@ -5,8 +5,9 @@ Dans le  cadre de ma mission, je dois créer un outil de montoring de scrapping 
 
 ### Sources
 Les données sources sont des fichiers json récupérés via l'API de la base
-de données *Pensieve*. Ceux-ci sont transformés par le programme pour en tirer des indicateurs 
+de données. Ceux-ci sont transformés par le programme pour en tirer des indicateurs 
 puis un tableau final est transmis dans une google sheet à une personne tierce qui effectue une vérification sur les sites internet identifiés. 
+Pour obtenir des résultats, il faut beaucoup de collectes et le volume de données est assez important.
 
 ### Objectif
 La phase actuelle du projet est d'implémenter des tests unitaires qui requièrent de contrôler l'input et l'output des différentes fonctions. 
@@ -14,35 +15,46 @@ Avec ce projet, mon but est de les visualiser sous Excel plutôt que sur la cons
 
 ### Structure
 Les opérations en amont ne pouvant être effectuées ou visualisées avec Excel sont dans leur propre module,
-tandis que les interactions avec Excel sont rassemblées dans la fonction `main` :
+tandis que les interactions avec Excel sont rassemblées dans la fonction `main` 
+
+LOAD AND TRANSFORM
+- Transforme la liste de dictionnaires en dataframe
+- Extrait du nested dictionnary les champs item scraped count et finish reason
+- Exporte tel quel dans Excel
+
+FILTER INSUFFICIENT COLLECTS
+- Filtre les territoires ayant au moins 2 collectes
+- Exporte tel quel dans Excel
+
+PAIRS WITH LAST COLLECTS
+- Cree un dataframe contenant uniquement les dernieres collectes de chaque territoire
+- Merge avec l'ancien dataframe pour obtenir pour chaque collecte, la derniere collecte du territoire
+- 2 nouvelles colonnes : item scraped count last et updated at last
+- Exporte tel quel dans Excel
+
+PROCESSED PAIRS WITH EXCEL
+- Cree 3 nouvelles colonnes dans Excel
+    - interval : nombre de jours entre une collecte et la derniere collecte d'un territoire
+    - is stopped : si item scraped count est égal à 0
+    - was active : si item scraped count est supérieur à 9
+
+PROCESSED PAIRS WITH PYTHON
+- La meme chose mais transformé dans Python
+
+SUM SCRAPED ON CURRENTLY STOPPED COLLECTS 
+- Cree une colonne calculant la somme cumulée des item scraped count par territoire
+- Exporte tel quel dans Excel
+
+EVER ACTIVE EXCEL
+- Filtre les territoires pour lesquels il y a eu au moins une collecte active (was_active = TRUE)
+
+EVER ACTIVE PYTHON
+- Filtre les territoires pour lesquels il y a eu au moins une collecte active (was_active = TRUE)
+
+GET CANDIDATE EXCEL
+- Les collectes qui repondent aux criteres.
+
+GET CANDIDATE PYTHON
 
 
 
-### CONSIGNES :
-
-A partir d’un jeu de données que vous aurez sélectionné (format à votre discrétion), vous devrez développer un script R ou Python pour créer un ou des documents Excel.
-
-Votre projet doit comporter au moins 4 des 6 éléments suivants :
-
-1. Création de multiples fichiers Excel à partir d’une source de données unique
-2. Transformation des données sources
-3. Création de formules Excel.
-4. Création d’un ou plusieurs tableaux de bord.
-5. Modification de la mise en forme du fichier Excel
-6. Insertion de graphiques ou d’images dans un fichier Excel.
-
-Votre projet doit avoir du sens, vous devrez expliquer votre démarche dans un document séparé (sauf si vous utilisez un jupyter notebook, vous pouvez l’insérer directement dans le notebook).
-
-Les documents à rendre sont : un fichier ZIP, contenant :
-* Vos fichiers de données sources
-* Votre script R ou votre Jupyter notebook python
-* Une fiche explicative de votre démarche (1 page maximum)
-
-### EVALUATION 
-* Le jeu de données est pertinent et la démarche a du sens.
-* Le nombre d’aspects contenu dans votre projet
-* La lisibilité du code source, le fait qu’il soit commenté de manière compréhensible.
-* Votre script fonctionne et produit bien un ou des fichiers Excel tels que décrit dans votre document d’explication de votre démarche.
-* Votre script fonctionne sans modifications, notamment des chemins d’accès aux fichiers sources
-* BONUS : utilisation de R ou Python pour réaliser des calculs statistiques ou de modélisation que vous exploitez ou présentez dans votre fichier Excel résultant de votre traitement.
-* BONUS : le ou les fichiers Excel résultant de votre traitement ont une mise en forme très propre et agréable.
