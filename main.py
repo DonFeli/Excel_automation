@@ -118,27 +118,27 @@ def main(args):
 
     # EVER ACTIVE EXCEL
     # - Filtre les territoires pour lesquels il y a eu au moins une collecte active (was_active = TRUE)
-    # logger.info('-------------- Sheet 7 : Get ever active Excel --------------------')
-    #
-    # ever_active_sheet_E = workbook.copy_worksheet(currently_stopped_sheet)
-    # ever_active_sheet_E.title = 'get_ever_active Excel'
-    #
-    # # Récupère les territory_uids où la collecte était active (was_active = True)
-    # ever_active_rows = []
-    # for row in ever_active_sheet_E.iter_rows(min_row=2, max_row=ever_active_sheet_E.max_row, min_col=12, max_col=12):
-    #     for cell in row:
-    #         if cell.value == True:
-    #             ever_active_rows.append(row[0].row)
-    #
-    # ever_active_uids = []
-    # for active_row in ever_active_rows:
-    #     ever_active_uids.append(ever_active_sheet_E[f'C{active_row}'].value)
-    #
-    # # Supprime les collectes de territoires qui n'ont jamais été actifs
-    # for cell in ever_active_sheet_E['C']:
-    #     if cell.row != 1:
-    #         if cell.value not in ever_active_uids:
-    #             ever_active_sheet_E.delete_rows(cell.row)
+    logger.info('-------------- Sheet 7 : Get ever active Excel --------------------')
+
+    ever_active_sheet_E = workbook.copy_worksheet(currently_stopped_sheet)
+    ever_active_sheet_E.title = 'get_ever_active Excel'
+
+    # Récupère les territory_uids où la collecte était active (was_active = True)
+    ever_active_rows = []
+    for row in ever_active_sheet_E.iter_rows(min_row=2, max_row=ever_active_sheet_E.max_row, min_col=12, max_col=12):
+        for cell in row:
+            if cell.value == True:
+                ever_active_rows.append(row[0].row)
+
+    ever_active_uids = []
+    for active_row in ever_active_rows:
+        ever_active_uids.append(ever_active_sheet_E[f'C{active_row}'].value)
+
+    # Supprime les collectes de territoires qui n'ont jamais été actifs
+    for cell in ever_active_sheet_E['C']:
+        if cell.row != 1:
+            if cell.value not in ever_active_uids:
+                ever_active_sheet_E.delete_rows(cell.row)
 
     # EVER ACTIVE PYTHON
     # - Filtre les territoires pour lesquels il y a eu au moins une collecte active (was_active = TRUE)
@@ -176,13 +176,6 @@ def main(args):
     get_candidate_sheet_P = workbook.create_sheet('get_candidate Python')
     for row in dataframe_to_rows(candidates, index=False, header=True):
         get_candidate_sheet_P.append(row)
-
-    # SUMMARY STATISTICS
-    logger.info('-------------- Sheet 9 : Summary --------------------')
-
-    summary_statistics_sheet = workbook.create_sheet("Summary Statistics")
-    summary_statistics_sheet['A1'] = '=COUNTA(N3:N236)'
-    summary_statistics_sheet['A2'] = '=UNIQUE(C2:C1016)'
 
     # MISE EN FORME
     logger.info('-------------- Saving Excel file ---------------------------------')
