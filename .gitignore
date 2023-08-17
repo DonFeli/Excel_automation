@@ -2,3 +2,4 @@
 *idea
 *.json
 *.ipynb
+.ipynb_checkpoints/
